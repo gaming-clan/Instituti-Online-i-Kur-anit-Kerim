@@ -17,14 +17,14 @@ export function Layout() {
   };
 
   const navItems = [
-    { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['student', 'teacher', 'admin'] },
-    { name: 'My Classes', href: '/classes/my', icon: BookOpen, roles: ['student'] },
-    { name: 'Available Classes', href: '/classes/available', icon: Calendar, roles: ['student'] },
-    { name: 'My Teaching', href: '/teacher/classes', icon: BookOpen, roles: ['teacher'] },
-    { name: 'Manage Subjects', href: '/admin/subjects', icon: BookOpen, roles: ['admin'] },
-    { name: 'Manage Classes', href: '/admin/classes', icon: Calendar, roles: ['admin'] },
-    { name: 'Users', href: '/admin/users', icon: Users, roles: ['admin'] },
-  ].filter(item => appUser?.role && item.roles.includes(appUser.role));
+    { name: 'Paneli i Përgjithshëm', href: '/', icon: LayoutDashboard, roles: ['student', 'teacher', 'admin', 'superadmin'] },
+    { name: 'Klasat e Mia', href: '/classes/my', icon: BookOpen, roles: ['student'] },
+    { name: 'Klasa të Disponueshme', href: '/classes/available', icon: Calendar, roles: ['student'] },
+    { name: 'Mësimdhënia Ime', href: '/teacher/classes', icon: BookOpen, roles: ['teacher'] },
+    { name: 'Menaxho Lëndët', href: '/admin/subjects', icon: BookOpen, roles: ['admin', 'superadmin'] },
+    { name: 'Menaxho Klasat', href: '/admin/classes', icon: Calendar, roles: ['admin', 'superadmin'] },
+    { name: 'Përdoruesit', href: '/admin/users', icon: Users, roles: ['admin', 'superadmin'] },
+  ].filter(item => appUser?.roles && appUser.roles.some(r => item.roles.includes(r)));
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
@@ -62,23 +62,21 @@ export function Layout() {
 
         <div className="mt-auto pt-6 border-t border-emerald-800/50">
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity">
+            <DropdownMenuTrigger className="flex flex-col md:flex-row items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity outline-none">
                 <div className="w-10 h-10 rounded-full bg-emerald-700 flex items-center justify-center text-xs font-bold text-white uppercase shrink-0">
                   {appUser?.fullName?.substring(0, 2) || 'U'}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 hidden md:block text-left">
                   <div className="text-xs font-bold text-white truncate">{appUser?.fullName}</div>
-                  <div className="text-[10px] text-emerald-400 capitalize truncate">{appUser?.role} • {appUser?.uid.substring(0,6)}</div>
+                  <div className="text-[10px] text-emerald-400 capitalize truncate">{appUser?.roles?.join(', ')} • {appUser?.uid.substring(0,6)}</div>
                 </div>
-              </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 mt-2">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
+              <DropdownMenuLabel>Llogaria Ime</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50" onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
+                <span>Dilni</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -93,19 +91,17 @@ export function Layout() {
             <span className="text-emerald-400 font-bold text-xl leading-tight uppercase tracking-widest">I.O.K.K</span>
           </div>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none">
+            <DropdownMenuTrigger className="flex items-center gap-2 hover:opacity-80 transition-opacity outline-none">
                 <Avatar className="h-9 w-9 bg-emerald-700 text-white rounded-full border border-emerald-600">
                   <AvatarFallback className="font-semibold text-xs uppercase">{appUser?.fullName?.substring(0, 2) || 'U'}</AvatarFallback>
                 </Avatar>
-              </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 mt-2">
               <DropdownMenuLabel>{appUser?.fullName}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50" onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
+                <span>Dilni</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

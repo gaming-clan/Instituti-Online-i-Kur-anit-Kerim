@@ -26,7 +26,7 @@ function AuthGuard({ children, roles }: { children: React.ReactNode, roles?: str
     return <Navigate to="/login" />;
   }
 
-  if (roles && !roles.includes(appUser.role)) {
+  if (roles && (!appUser.roles || !appUser.roles.some(r => roles.includes(r)))) {
     return <Navigate to="/" />;
   }
 
@@ -44,9 +44,9 @@ export default function App() {
             <Route index element={<Dashboard />} />
             
             {/* Admin Routes */}
-            <Route path="admin/subjects" element={<AuthGuard roles={['admin']}><SubjectsAdmin /></AuthGuard>} />
-            <Route path="admin/classes" element={<AuthGuard roles={['admin']}><ClassesAdmin /></AuthGuard>} />
-            <Route path="admin/users" element={<AuthGuard roles={['admin']}><UsersAdmin /></AuthGuard>} />
+            <Route path="admin/subjects" element={<AuthGuard roles={['admin', 'superadmin']}><SubjectsAdmin /></AuthGuard>} />
+            <Route path="admin/classes" element={<AuthGuard roles={['admin', 'superadmin']}><ClassesAdmin /></AuthGuard>} />
+            <Route path="admin/users" element={<AuthGuard roles={['admin', 'superadmin']}><UsersAdmin /></AuthGuard>} />
             
             {/* Teacher Routes */}
             <Route path="teacher/classes" element={<AuthGuard roles={['teacher']}><TeacherClasses /></AuthGuard>} />
@@ -56,7 +56,7 @@ export default function App() {
             <Route path="classes/available" element={<AuthGuard roles={['student']}><AvailableClasses /></AuthGuard>} />
             
             {/* Shared Route */}
-            <Route path="classes/:classId" element={<AuthGuard roles={['student', 'teacher', 'admin']}><ClassDetails /></AuthGuard>} />
+            <Route path="classes/:classId" element={<AuthGuard roles={['student', 'teacher', 'admin', 'superadmin']}><ClassDetails /></AuthGuard>} />
           </Route>
         </Routes>
       </BrowserRouter>

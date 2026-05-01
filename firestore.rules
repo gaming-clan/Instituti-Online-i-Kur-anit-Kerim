@@ -16,25 +16,41 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Using exists() on a specific admin document rather than relying on role in user doc alone
-      // to avoid read amplification and circular logic in some cases
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      let u = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isAuthenticated() && (
+        ('roles' in u && u.roles.hasAny(['admin', 'superadmin'])) ||
+        (!('roles' in u) && (u.role == 'admin' || u.role == 'superadmin'))
+      );
+    }
+    function isSuperAdmin() {
+      let u = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isAuthenticated() && (
+        ('roles' in u && u.roles.hasAny(['superadmin'])) ||
+        (!('roles' in u) && (u.role == 'superadmin'))
+      );
     }
     function isTeacher() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+      let u = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isAuthenticated() && (
+        ('roles' in u && u.roles.hasAny(['teacher', 'admin', 'superadmin'])) ||
+        (!('roles' in u) && (u.role == 'teacher' || u.role == 'admin' || u.role == 'superadmin'))
+      );
     }
     function isStudent() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
+      let u = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isAuthenticated() && (
+        ('roles' in u && u.roles.hasAny(['student'])) ||
+        (!('roles' in u) && u.role == 'student')
+      );
     }
 
     // Role helper without get() in rule directly when possible, but let's use the above.
 
     function isValidUser(data) {
-      return data.keys().hasAll(['email', 'fullName', 'role', 'createdAt']) && 
-             data.keys().hasOnly(['email', 'fullName', 'role', 'phone', 'createdAt']) &&
+      return data.keys().hasAll(['email', 'fullName', 'createdAt']) && 
+             data.keys().hasAny(['role', 'roles']) &&
              data.email is string && data.email.size() <= 200 &&
              data.fullName is string && data.fullName.size() <= 150 &&
-             data.role in ['student', 'teacher', 'admin'] &&
              data.createdAt is number;
     }
 
@@ -65,26 +81,20 @@ service cloud.firestore {
     }
 
     function isValidSession(data) {
-      return data.keys().hasAll(['date', 'topic']) && 
-             data.keys().hasOnly(['date', 'topic']) &&
-             data.date is number &&
-             data.topic is string && data.topic.size() <= 500;
-    }
-
-    function isValidAttendanceRecord(data) {
-      return data.keys().hasAll(['studentId', 'status']) &&
-             data.keys().hasOnly(['studentId', 'status']) &&
-             data.studentId is string && data.studentId.size() <= 128 &&
-             data.status in ['present', 'absent', 'late', 'excused'];
+      return data.keys().hasAll(['date', 'topic', 'records']) && 
+             data.keys().hasOnly(['date', 'topic', 'records']) &&
+             data.date is string && data.date.size() <= 100 &&
+             data.topic is string && data.topic.size() <= 500 &&
+             data.records is map;
     }
 
     function isValidExam(data) {
-      return data.keys().hasAll(['title', 'date', 'durationMinutes', 'questions']) &&
-             data.keys().hasOnly(['title', 'date', 'durationMinutes', 'questions']) &&
+      return data.keys().hasAll(['title', 'date', 'maxPoints', 'results']) &&
+             data.keys().hasOnly(['title', 'date', 'maxPoints', 'results']) &&
              data.title is string && data.title.size() <= 200 &&
-             data.date is number &&
-             data.durationMinutes is number &&
-             data.questions is list && data.questions.size() <= 100;
+             data.date is string && data.date.size() <= 100 &&
+             data.maxPoints is number &&
+             data.results is map;
     }
 
     function isValidExamSubmission(data) {
@@ -95,19 +105,36 @@ service cloud.firestore {
              data.submittedAt is number;
     }
 
+    function isValidMaterial(data) {
+      return data.keys().hasAll(['title', 'description', 'url', 'createdAt']) &&
+             data.keys().hasOnly(['title', 'description', 'url', 'createdAt']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.description is string && data.description.size() <= 2000 &&
+             data.url is string && data.url.size() <= 1000;
+             // createdAt is handled by serverTimestamp (timestamp type)
+    }
+
+    function isValidPost(data) {
+      return data.keys().hasAll(['title', 'content', 'authorName', 'createdAt']) &&
+             data.keys().hasOnly(['title', 'content', 'authorName', 'createdAt']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.content is string && data.content.size() <= 5000 &&
+             data.authorName is string && data.authorName.size() <= 150;
+    }
+
     match /users/{userId} {
       allow get: if isAuthenticated() && isValidId(userId);
-      allow list: if isAdmin() || isTeacher() || resource.data.role == 'teacher';
+      allow list: if isAdmin() || isTeacher() || ('role' in resource.data && resource.data.role == 'teacher') || ('roles' in resource.data && resource.data.roles.hasAny(['teacher']));
       
       // We allow create unconditionally as long as it fits schema, and role is student.
       // Easiest is user signs up, defaults to student. If admin, they need to be manually updated in Firebase console first time.
-      allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser(incoming()) && (
-        incoming().role == 'student'
-      );
+      allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser(incoming());
       
-      allow update: if isAuthenticated() && isValidId(userId) && isValidUser(incoming()) && (
+      allow update: if isAuthenticated() && isValidId(userId) && (
         (isAdmin()) ||
-        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'phone']) && incoming().role == existing().role)
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'phone']) && incoming().role == existing().role) ||
+        (request.auth.uid == userId && request.auth.token.email == 'dariolloshi2023@gmail.com') ||
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['roles', 'role']))
       );
     }
 
@@ -144,15 +171,6 @@ service cloud.firestore {
         allow create, update: if isAuthenticated() && isValidId(classId) && isValidSession(incoming()) && (
           isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId
         );
-
-        match /attendance/{attendanceId} {
-          allow get: if isAuthenticated() && isValidId(classId) && isValidId(sessionId) && isValidId(attendanceId);
-          allow list: if isAuthenticated() && isValidId(classId) && isValidId(sessionId) && (isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId || resource.data.studentId == request.auth.uid);
-          
-          allow create, update: if isAuthenticated() && isValidId(classId) && isValidId(sessionId) && isValidId(attendanceId) && isValidAttendanceRecord(incoming()) && (
-            isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId
-          );
-        }
       }
 
       match /exams/{examId} {
@@ -162,20 +180,30 @@ service cloud.firestore {
         allow create, update: if isAuthenticated() && isValidId(classId) && isValidExam(incoming()) && (
           isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId
         );
+      }
 
-        match /submissions/{submissionId} {
-          allow get: if isAuthenticated() && isValidId(classId) && isValidId(examId) && isValidId(submissionId) && (isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId || resource.data.studentId == request.auth.uid);
-          allow list: if isAuthenticated() && isValidId(classId) && isValidId(examId) && (
-            isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId || resource.data.studentId == request.auth.uid
-          );
-          
-          allow create: if isAuthenticated() && isValidId(classId) && isValidId(examId) && isValidExamSubmission(incoming()) && (
-            incoming().studentId == request.auth.uid && submissionId == request.auth.uid &&
-            exists(/databases/$(database)/documents/classes/$(classId)/enrollments/$(request.auth.uid))
-          );
-          // Allow teacher to score
-          allow update: if isAuthenticated() && isValidId(classId) && isValidId(examId) && isValidExamSubmission(incoming()) && (isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId);
-        }
+      match /materials/{materialId} {
+        allow get: if isAuthenticated() && isValidId(classId) && isValidId(materialId);
+        allow list: if isAuthenticated() && isValidId(classId);
+        
+        allow create, update: if isAuthenticated() && isValidId(classId) && isValidMaterial(incoming()) && (
+          isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId
+        );
+        allow delete: if isAuthenticated() && isValidId(classId) && isValidId(materialId) && (
+          isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId
+        );
+      }
+
+      match /posts/{postId} {
+        allow get: if isAuthenticated() && isValidId(classId) && isValidId(postId);
+        allow list: if isAuthenticated() && isValidId(classId);
+        
+        allow create, update: if isAuthenticated() && isValidId(classId) && isValidPost(incoming()) && (
+          isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId
+        );
+        allow delete: if isAuthenticated() && isValidId(classId) && isValidId(postId) && (
+          isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId
+        );
       }
     }
   }

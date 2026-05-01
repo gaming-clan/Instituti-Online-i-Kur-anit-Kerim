@@ -1,46 +1,78 @@
+import React, { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Loader2, BookOpen } from 'lucide-react';
-import { useState } from 'react';
+import { Loader2, BookOpen, Apple } from 'lucide-react';
 
 export default function Login() {
-  const { user, appUser, signIn, loading } = useAuth();
+  const { user, signIn, signInWithApple, loading } = useAuth();
   const navigate = useNavigate();
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   if (loading) {
     return <div className="h-screen w-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-emerald-600" /></div>;
   }
 
-  if (user && appUser) {
+  if (user) {
     return <Navigate to="/" />;
   }
 
-  const handleSignIn = async () => {
+  const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
+    setErrorMsg('');
     try {
       await signIn();
       navigate('/');
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       setIsSigningIn(false);
+      setErrorMsg(error?.message || 'Ndodhi një gabim gjatë kyçjes me Google.');
+    }
+  };
+
+  const handleAppleSignIn = async () => {
+    setIsSigningIn(true);
+    setErrorMsg('');
+    try {
+      await signInWithApple();
+      navigate('/');
+    } catch (error: any) {
+      console.error(error);
+      setIsSigningIn(false);
+      setErrorMsg('Hyrja me Apple dështoi. Sigurohuni që keni konfiguruar llogarinë saktë.');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-emerald-50/50 p-4 font-sans">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-emerald-100">
-        <div className="bg-emerald-700 p-8 text-center text-white">
-          <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-90" />
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Instituti i Kur'anit</h1>
-          <p className="text-emerald-100/90 text-sm">Portali Online i Studimeve Islame</p>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans relative overflow-hidden">
+      {/* Decorative blobs */}
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
+      <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+      
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100 z-10">
+        <div className="bg-emerald-800 p-8 text-center text-white relative">
+          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/arabesque.png')] opacity-10"></div>
+          <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-90 relative z-10" />
+          <h1 className="text-3xl font-serif italic tracking-tight mb-2 relative z-10">Instituti i Kur'anit</h1>
+          <p className="text-emerald-100/90 text-sm relative z-10">Portali Online i Studimeve Islame</p>
         </div>
         <div className="p-8">
-          <div className="space-y-6">
+          
+          {errorMsg && (
+            <div className="mb-6 p-4 bg-rose-50 text-rose-700 rounded-xl text-sm border border-rose-200">
+              {errorMsg}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <p className="text-sm text-slate-500 text-center mb-6">Zgjidhni një mënyrë për t'u kyçur në llogarinë tuaj.</p>
+            
             <Button
-              className="w-full py-6 text-lg bg-white border-2 border-neutral-200 text-neutral-800 hover:bg-neutral-50 hover:border-neutral-300 shadow-sm transition-all"
-              onClick={handleSignIn}
+              className="w-full py-7 text-base rounded-2xl bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all flex items-center justify-center"
+              onClick={handleGoogleSignIn}
               disabled={isSigningIn}
             >
               {isSigningIn ? (
@@ -65,13 +97,26 @@ export default function Login() {
                   />
                 </svg>
               )}
-              {isSigningIn ? 'Po kyçesh...' : 'Kyçu me Google'}
+              {isSigningIn ? 'Po kyçesh...' : 'Vazhdo me Google'}
+            </Button>
+
+            <Button
+              className={`w-full py-7 text-base rounded-2xl bg-black hover:bg-zinc-900 text-white shadow-md transition-all flex items-center justify-center ${isIOS ? 'border-2 border-emerald-400' : ''}`}
+              onClick={handleAppleSignIn}
+              disabled={isSigningIn}
+            >
+              {isSigningIn ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <Apple className="w-5 h-5 mr-3" />
+              )}
+              {isSigningIn ? 'Po kyçesh...' : 'Vazhdo me Apple'}
             </Button>
           </div>
           
-          <div className="mt-8 text-center">
-            <p className="text-xs text-neutral-500">
-              Duke vazhduar, ju pranoni kushtet dhe rregulloret e platformës.
+          <div className="mt-8 text-center pt-6 border-t border-slate-100">
+            <p className="text-xs text-slate-400 font-medium">
+              Instituti i Kur'anit © 2024
             </p>
           </div>
         </div>

@@ -7,7 +7,8 @@
       "properties": {
         "email": { "type": "string" },
         "fullName": { "type": "string" },
-        "role": { "type": "string", "enum": ["student", "teacher", "admin"] },
+        "roles": { "type": "array", "items": { "type": "string", "enum": ["student", "teacher", "admin", "superadmin"] } },
+        "role": { "type": "string", "enum": ["student", "teacher", "admin", "superadmin"] },
         "phone": { "type": "string" },
         "createdAt": { "type": "number" }
       },
@@ -108,6 +109,30 @@
         "submittedAt": { "type": "number" }
       },
       "required": ["studentId", "answers", "submittedAt"]
+    },
+    "Material": {
+      "title": "Material",
+      "description": "A class material (file, link, etc).",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "url": { "type": "string" },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["title", "description", "url"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "An announcement or post for a class.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "authorName": { "type": "string" },
+        "createdAt": { "type": "object" }
+      },
+      "required": ["title", "content", "authorName"]
     }
   },
   "firestore": {
@@ -129,19 +154,19 @@
     },
     "/classes/{classId}/sessions/{sessionId}": {
       "schema": { "$ref": "#/entities/Session" },
-      "description": "Stores sessions for attendance."
-    },
-    "/classes/{classId}/sessions/{sessionId}/attendance/{attendanceId}": {
-      "schema": { "$ref": "#/entities/AttendanceRecord" },
-      "description": "Stores student attendance for a session."
+      "description": "Stores sessions and attendance."
     },
     "/classes/{classId}/exams/{examId}": {
       "schema": { "$ref": "#/entities/Exam" },
-      "description": "Stores exams for a class."
+      "description": "Stores exams and results."
     },
-    "/classes/{classId}/exams/{examId}/submissions/{submissionId}": {
-      "schema": { "$ref": "#/entities/ExamSubmission" },
-      "description": "Stores student exam submissions."
+    "/classes/{classId}/materials/{materialId}": {
+      "schema": { "$ref": "#/entities/Material" },
+      "description": "Stores materials for a class."
+    },
+    "/classes/{classId}/posts/{postId}": {
+      "schema": { "$ref": "#/entities/Post" },
+      "description": "Stores posts for a class."
     }
   }
 }

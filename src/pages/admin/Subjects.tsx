@@ -108,11 +108,9 @@ export default function SubjectsAdmin() {
         </div>
 
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if(!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button className="bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl shadow-sm">
+          <DialogTrigger render={<Button className="bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl shadow-sm" />}>
               <Plus className="mr-2 h-4 w-4" />
               Shto Lëndë
-            </Button>
           </DialogTrigger>
           <DialogContent className="rounded-2xl border-slate-200">
             <DialogHeader>

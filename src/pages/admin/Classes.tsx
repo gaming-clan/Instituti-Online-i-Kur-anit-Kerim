@@ -53,12 +53,17 @@ export default function ClassesAdmin() {
     try {
       const [clsSnap, tchSnap, subSnap] = await Promise.all([
         getDocs(collection(db, 'classes')),
-        getDocs(query(collection(db, 'users'), where('role', '==', 'teacher'))),
+        getDocs(collection(db, 'users')),
         getDocs(collection(db, 'subjects'))
       ]);
 
       setClasses(clsSnap.docs.map(d => ({ id: d.id, ...d.data() } as AppClass)));
-      setTeachers(tchSnap.docs.map(d => ({ id: d.id, fullName: d.data().fullName })));
+      setTeachers(tchSnap.docs
+        .filter(d => {
+          const tData = d.data();
+          return tData.role === 'teacher' || (tData.roles && tData.roles.includes('teacher'));
+        })
+        .map(d => ({ id: d.id, fullName: d.data().fullName })));
       setSubjects(subSnap.docs.map(d => ({ id: d.id, title: d.data().title })));
     } catch (error) {
       handleFirestoreError(error, OperationType.GET, 'classes/data');
@@ -127,11 +132,9 @@ export default function ClassesAdmin() {
         </div>
 
         <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if(!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button className="bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl shadow-sm">
+          <DialogTrigger render={<Button className="bg-emerald-700 hover:bg-emerald-600 text-white rounded-xl shadow-sm" />}>
               <Plus className="mr-2 h-4 w-4" />
               Shto Klasë
-            </Button>
           </DialogTrigger>
           <DialogContent className="rounded-2xl border-slate-200">
             <DialogHeader>
