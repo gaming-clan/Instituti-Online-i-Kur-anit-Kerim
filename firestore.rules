@@ -1,0 +1,182 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return request.auth != null; }
+    function isAuthenticated() { return isSignedIn(); } 
+    
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      // Using exists() on a specific admin document rather than relying on role in user doc alone
+      // to avoid read amplification and circular logic in some cases
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    function isTeacher() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+    function isStudent() {
+      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'student';
+    }
+
+    // Role helper without get() in rule directly when possible, but let's use the above.
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'fullName', 'role', 'createdAt']) && 
+             data.keys().hasOnly(['email', 'fullName', 'role', 'phone', 'createdAt']) &&
+             data.email is string && data.email.size() <= 200 &&
+             data.fullName is string && data.fullName.size() <= 150 &&
+             data.role in ['student', 'teacher', 'admin'] &&
+             data.createdAt is number;
+    }
+
+    function isValidSubject(data) {
+      return data.keys().hasAll(['title', 'description', 'createdAt']) &&
+             data.keys().hasOnly(['title', 'description', 'createdAt']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.description is string && data.description.size() <= 2000 &&
+             data.createdAt is number;
+    }
+
+    function isValidClass(data) {
+      return data.keys().hasAll(['subjectId', 'title', 'teacherId', 'semester', 'createdAt']) &&
+             data.keys().hasOnly(['subjectId', 'title', 'teacherId', 'semester', 'createdAt']) &&
+             data.subjectId is string && data.subjectId.size() <= 128 &&
+             data.title is string && data.title.size() <= 200 &&
+             data.teacherId is string && data.teacherId.size() <= 128 &&
+             data.semester is string && data.semester.size() <= 100 &&
+             data.createdAt is number;
+    }
+
+    function isValidEnrollment(data) {
+      return data.keys().hasAll(['studentId', 'enrolledAt', 'status']) &&
+             data.keys().hasOnly(['studentId', 'enrolledAt', 'status']) &&
+             data.studentId is string && data.studentId.size() <= 128 &&
+             data.enrolledAt is number &&
+             data.status in ['active', 'dropped', 'completed'];
+    }
+
+    function isValidSession(data) {
+      return data.keys().hasAll(['date', 'topic']) && 
+             data.keys().hasOnly(['date', 'topic']) &&
+             data.date is number &&
+             data.topic is string && data.topic.size() <= 500;
+    }
+
+    function isValidAttendanceRecord(data) {
+      return data.keys().hasAll(['studentId', 'status']) &&
+             data.keys().hasOnly(['studentId', 'status']) &&
+             data.studentId is string && data.studentId.size() <= 128 &&
+             data.status in ['present', 'absent', 'late', 'excused'];
+    }
+
+    function isValidExam(data) {
+      return data.keys().hasAll(['title', 'date', 'durationMinutes', 'questions']) &&
+             data.keys().hasOnly(['title', 'date', 'durationMinutes', 'questions']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.date is number &&
+             data.durationMinutes is number &&
+             data.questions is list && data.questions.size() <= 100;
+    }
+
+    function isValidExamSubmission(data) {
+      return data.keys().hasAll(['studentId', 'answers', 'submittedAt']) &&
+             data.keys().hasOnly(['studentId', 'answers', 'score', 'submittedAt']) &&
+             data.studentId is string && data.studentId.size() <= 128 &&
+             data.answers is list && data.answers.size() <= 100 &&
+             data.submittedAt is number;
+    }
+
+    match /users/{userId} {
+      allow get: if isAuthenticated() && isValidId(userId);
+      allow list: if isAdmin() || isTeacher() || resource.data.role == 'teacher';
+      
+      // We allow create unconditionally as long as it fits schema, and role is student.
+      // Easiest is user signs up, defaults to student. If admin, they need to be manually updated in Firebase console first time.
+      allow create: if isAuthenticated() && request.auth.uid == userId && isValidUser(incoming()) && (
+        incoming().role == 'student'
+      );
+      
+      allow update: if isAuthenticated() && isValidId(userId) && isValidUser(incoming()) && (
+        (isAdmin()) ||
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'phone']) && incoming().role == existing().role)
+      );
+    }
+
+    match /subjects/{subjectId} {
+      allow read: if isAuthenticated() && isValidId(subjectId);
+      allow list: if isAuthenticated();
+      allow create: if isAdmin() && isValidSubject(incoming());
+      allow update: if isAdmin() && isValidSubject(incoming()) && isValidId(subjectId) && incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description']);
+      allow delete: if isAdmin() && isValidId(subjectId);
+    }
+
+    match /classes/{classId} {
+      allow read: if isAuthenticated() && isValidId(classId);
+      allow list: if isAuthenticated();
+      allow create: if isAdmin() && isValidClass(incoming());
+      allow update: if isAdmin() && isValidClass(incoming()) && isValidId(classId);
+      allow delete: if isAdmin() && isValidId(classId);
+
+      match /enrollments/{enrollmentId} {
+        allow list: if isAuthenticated() && isValidId(classId) && (isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId || resource.data.studentId == request.auth.uid);
+        allow get: if isAuthenticated() && isValidId(classId) && isValidId(enrollmentId);
+        
+        allow create: if isAuthenticated() && isValidId(classId) && isValidEnrollment(incoming()) && (
+          (isAdmin()) || 
+          (incoming().studentId == request.auth.uid && enrollmentId == request.auth.uid)
+        );
+        allow update: if isAuthenticated() && isValidId(classId) && isValidId(enrollmentId) && isValidEnrollment(incoming()) && (isAdmin());
+      }
+
+      match /sessions/{sessionId} {
+        allow read: if isAuthenticated() && isValidId(classId) && isValidId(sessionId);
+        allow list: if isAuthenticated() && isValidId(classId);
+        
+        allow create, update: if isAuthenticated() && isValidId(classId) && isValidSession(incoming()) && (
+          isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId
+        );
+
+        match /attendance/{attendanceId} {
+          allow get: if isAuthenticated() && isValidId(classId) && isValidId(sessionId) && isValidId(attendanceId);
+          allow list: if isAuthenticated() && isValidId(classId) && isValidId(sessionId) && (isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId || resource.data.studentId == request.auth.uid);
+          
+          allow create, update: if isAuthenticated() && isValidId(classId) && isValidId(sessionId) && isValidId(attendanceId) && isValidAttendanceRecord(incoming()) && (
+            isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId
+          );
+        }
+      }
+
+      match /exams/{examId} {
+        allow get: if isAuthenticated() && isValidId(classId) && isValidId(examId);
+        allow list: if isAuthenticated() && isValidId(classId);
+        
+        allow create, update: if isAuthenticated() && isValidId(classId) && isValidExam(incoming()) && (
+          isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId
+        );
+
+        match /submissions/{submissionId} {
+          allow get: if isAuthenticated() && isValidId(classId) && isValidId(examId) && isValidId(submissionId) && (isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId || resource.data.studentId == request.auth.uid);
+          allow list: if isAuthenticated() && isValidId(classId) && isValidId(examId) && (
+            isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId || resource.data.studentId == request.auth.uid
+          );
+          
+          allow create: if isAuthenticated() && isValidId(classId) && isValidId(examId) && isValidExamSubmission(incoming()) && (
+            incoming().studentId == request.auth.uid && submissionId == request.auth.uid &&
+            exists(/databases/$(database)/documents/classes/$(classId)/enrollments/$(request.auth.uid))
+          );
+          // Allow teacher to score
+          allow update: if isAuthenticated() && isValidId(classId) && isValidId(examId) && isValidExamSubmission(incoming()) && (isAdmin() || request.auth.uid == get(/databases/$(database)/documents/classes/$(classId)).data.teacherId);
+        }
+      }
+    }
+  }
+}

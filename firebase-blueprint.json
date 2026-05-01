@@ -1,0 +1,147 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile containing personal information and role.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "fullName": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "teacher", "admin"] },
+        "phone": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["email", "fullName", "role", "createdAt"]
+    },
+    "Subject": {
+      "title": "Subject",
+      "description": "A subject taught in the institute.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["title", "description", "createdAt"]
+    },
+    "Class": {
+      "title": "Class",
+      "description": "A specific class instance of a subject.",
+      "type": "object",
+      "properties": {
+        "subjectId": { "type": "string" },
+        "title": { "type": "string" },
+        "teacherId": { "type": "string" },
+        "semester": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["subjectId", "title", "teacherId", "createdAt"]
+    },
+    "Enrollment": {
+      "title": "Enrollment",
+      "description": "A student enrolled in a class.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "enrolledAt": { "type": "number" },
+        "status": { "type": "string", "enum": ["active", "dropped", "completed"] }
+      },
+      "required": ["studentId", "enrolledAt", "status"]
+    },
+    "Session": {
+      "title": "Session",
+      "description": "A class session on a specific date for attendance.",
+      "type": "object",
+      "properties": {
+        "date": { "type": "number" },
+        "topic": { "type": "string" }
+      },
+      "required": ["date"]
+    },
+    "AttendanceRecord": {
+      "title": "Attendance Record",
+      "description": "A student's attendance for a specific session.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "status": { "type": "string", "enum": ["present", "absent", "late", "excused"] }
+      },
+      "required": ["studentId", "status"]
+    },
+    "Exam": {
+      "title": "Exam",
+      "description": "An online exam for a class.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "date": { "type": "number" },
+        "durationMinutes": { "type": "number" },
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "text": { "type": "string" },
+              "options": {
+                "type": "array",
+                "items": { "type": "string" }
+              },
+              "correctOptionIndex": { "type": "number" }
+            }
+          }
+        }
+      },
+      "required": ["title", "date", "questions"]
+    },
+    "ExamSubmission": {
+      "title": "Exam Submission",
+      "description": "A student's submission for an exam.",
+      "type": "object",
+      "properties": {
+        "studentId": { "type": "string" },
+        "answers": {
+          "type": "array",
+          "items": { "type": "number" }
+        },
+        "score": { "type": "number" },
+        "submittedAt": { "type": "number" }
+      },
+      "required": ["studentId", "answers", "submittedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Stores user profiles."
+    },
+    "/subjects/{subjectId}": {
+      "schema": { "$ref": "#/entities/Subject" },
+      "description": "Stores global subjects."
+    },
+    "/classes/{classId}": {
+      "schema": { "$ref": "#/entities/Class" },
+      "description": "Stores class instances."
+    },
+    "/classes/{classId}/enrollments/{enrollmentId}": {
+      "schema": { "$ref": "#/entities/Enrollment" },
+      "description": "Stores student enrollments for a class."
+    },
+    "/classes/{classId}/sessions/{sessionId}": {
+      "schema": { "$ref": "#/entities/Session" },
+      "description": "Stores sessions for attendance."
+    },
+    "/classes/{classId}/sessions/{sessionId}/attendance/{attendanceId}": {
+      "schema": { "$ref": "#/entities/AttendanceRecord" },
+      "description": "Stores student attendance for a session."
+    },
+    "/classes/{classId}/exams/{examId}": {
+      "schema": { "$ref": "#/entities/Exam" },
+      "description": "Stores exams for a class."
+    },
+    "/classes/{classId}/exams/{examId}/submissions/{submissionId}": {
+      "schema": { "$ref": "#/entities/ExamSubmission" },
+      "description": "Stores student exam submissions."
+    }
+  }
+}
