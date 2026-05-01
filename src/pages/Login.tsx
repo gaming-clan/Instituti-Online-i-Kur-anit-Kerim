@@ -5,7 +5,7 @@ import { Loader2, BookOpen } from 'lucide-react';
 import { useState } from 'react';
 
 export default function Login() {
-  const { user, signIn, loading } = useAuth();
+  const { user, appUser, signIn, loading } = useAuth();
   const navigate = useNavigate();
   const [isSigningIn, setIsSigningIn] = useState(false);
 
@@ -13,7 +13,7 @@ export default function Login() {
     return <div className="h-screen w-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-emerald-600" /></div>;
   }
 
-  if (user) {
+  if (user && appUser) {
     return <Navigate to="/" />;
   }
 

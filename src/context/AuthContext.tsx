@@ -1,8 +1,7 @@
-import { Provider } from 'react';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth, db, handleFirestoreError, OperationType } from '@/lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export type UserRole = 'student' | 'teacher' | 'admin';
 
@@ -39,8 +38,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
-      setUser(currUser);
       if (currUser) {
+        setLoading(true);
+        setUser(currUser);
         try {
           const userDocRef = doc(db, 'users', currUser.uid);
           const docSnap = await getDoc(userDocRef);
@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const newUserData = {
               email: currUser.email || '',
               fullName: currUser.displayName || 'Anonymous Student',
-              role: 'student',
+              role: 'student' as UserRole,
               createdAt: Date.now()
             };
             await setDoc(userDocRef, newUserData).catch(err => handleFirestoreError(err, OperationType.CREATE, `users/${currUser.uid}`));
@@ -60,8 +60,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
         } catch (err) {
           handleFirestoreError(err, OperationType.GET, `users/${currUser.uid}`);
+          await firebaseSignOut(auth);
+          setUser(null);
+          setAppUser(null);
         }
       } else {
+        setUser(null);
         setAppUser(null);
       }
       setLoading(false);
