@@ -9,8 +9,9 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
-  "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-  "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
+}
 }
 
   },
@@ -54,4 +55,3 @@
     "wrangler": "latest"
 
   }
-}
