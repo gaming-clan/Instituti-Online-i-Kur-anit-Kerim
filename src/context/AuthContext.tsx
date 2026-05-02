@@ -18,6 +18,8 @@ interface AuthContextType {
   user: User | null;
   appUser: AppUser | null;
   loading: boolean;
+  activeRoles: UserRole[];
+  setActiveRoles: (roles: UserRole[]) => void;
   signIn: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -26,7 +28,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   appUser: null,
+  activeRoles: [],
   loading: true,
+  setActiveRoles: () => {},
   signIn: async () => {},
   signInWithApple: async () => {},
   signOut: async () => {}
@@ -37,7 +41,25 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [appUser, setAppUser] = useState<AppUser | null>(null);
+  const [activeRoles, setActiveRolesState] = useState<UserRole[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Sync active roles with localStorage to persist selection
+  useEffect(() => {
+    const saved = localStorage.getItem('activeRoles');
+    if (saved) {
+      try {
+        setActiveRolesState(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse activeRoles from localStorage", e);
+      }
+    }
+  }, []);
+
+  const setActiveRoles = (roles: UserRole[]) => {
+    setActiveRolesState(roles);
+    localStorage.setItem('activeRoles', JSON.stringify(roles));
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
@@ -98,6 +120,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
 
             setAppUser({ uid: currUser.uid, ...data, roles: currentRoles } as AppUser);
+            
+            // Auto-initialize active roles if not set
+            const saved = localStorage.getItem('activeRoles');
+            if (!saved) {
+              setActiveRoles(currentRoles);
+            }
           } else {
             // New user (not pre-registered)
             const determinedRoles: UserRole[] = currUser.email === 'dariolloshi2023@gmail.com' ? ['superadmin'] : ['student'];
@@ -114,6 +142,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               handleFirestoreError(err, OperationType.CREATE, `users/${currUser.uid}`);
             }
             setAppUser({ uid: currUser.uid, ...newUserData } as AppUser);
+            setActiveRoles(determinedRoles);
           }
         } catch (err: any) {
           if (err instanceof Error && err.message.includes('authInfo')) {
@@ -145,7 +174,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, appUser, loading, signIn, signInWithApple, signOut }}>
+    <AuthContext.Provider value={{ user, appUser, activeRoles, setActiveRoles, loading, signIn, signInWithApple, signOut }}>
       {children}
     </AuthContext.Provider>
   );

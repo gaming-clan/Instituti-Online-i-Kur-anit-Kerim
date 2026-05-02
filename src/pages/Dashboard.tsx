@@ -5,8 +5,12 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 
 export default function Dashboard() {
-  const { appUser } = useAuth();
+  const { appUser, activeRoles } = useAuth();
   const navigate = useNavigate();
+
+  const isAdmin = activeRoles.includes('admin') || activeRoles.includes('superadmin') || appUser?.roles.includes('superadmin');
+  const isStudent = activeRoles.includes('student');
+  const isTeacher = activeRoles.includes('teacher');
 
   return (
     <div className="flex flex-col gap-4 h-full">
@@ -16,14 +20,26 @@ export default function Dashboard() {
           <h1 className="text-2xl font-serif text-slate-800 italic">Bismillahi r-Rahmani r-Rahim</h1>
           <p className="text-sm text-slate-500 font-medium">Esselamu Alejkum we Rrahmetullahi we Berekatuhu {appUser?.fullName}</p>
         </div>
-        <div className="hidden sm:flex gap-2">
-          <div className="bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200 text-xs font-semibold">1445 Hijri</div>
-          <div className="bg-emerald-100 text-emerald-800 px-4 py-2 rounded-full shadow-sm border border-emerald-200 text-xs font-semibold">Statusi: Aktiv</div>
+        <div className="flex items-center gap-2">
+          {appUser && appUser.roles.length > 1 && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate('/role-selection')}
+              className="text-[10px] font-bold uppercase tracking-tight rounded-full bg-white border-emerald-200 text-emerald-800 hover:bg-emerald-50"
+            >
+              Ndrysho Pamjen
+            </Button>
+          )}
+          <div className="hidden sm:flex gap-2">
+            <div className="bg-white px-4 py-2 rounded-full shadow-sm border border-slate-200 text-xs font-semibold">1445 Hijri</div>
+            <div className="bg-emerald-100 text-emerald-800 px-4 py-2 rounded-full shadow-sm border border-emerald-200 text-xs font-semibold">Statusi: Aktiv</div>
+          </div>
         </div>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-12 md:auto-rows-[160px] gap-4">
-        {(appUser?.roles?.includes('admin') || appUser?.roles?.includes('superadmin')) && (
+        {isAdmin && (
           <>
             <section className="col-span-1 md:col-span-4 row-span-1 md:row-span-2 bg-emerald-800 rounded-2xl shadow-sm border border-emerald-700 p-6 text-white flex flex-col justify-between">
               <div>
@@ -60,7 +76,7 @@ export default function Dashboard() {
           </>
         )}
 
-        {appUser?.roles?.includes('student') && (
+        {isStudent && (
           <>
             {/* Course Overview Card */}
             <section className="col-span-1 md:col-span-8 row-span-1 md:row-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
@@ -89,7 +105,7 @@ export default function Dashboard() {
           </>
         )}
         
-        {appUser?.roles?.includes('teacher') && (
+        {isTeacher && (
           <section className="col-span-1 md:col-span-12 row-span-1 md:row-span-2 bg-slate-800 rounded-2xl shadow-sm p-6 text-white flex flex-col justify-between">
             <div>
               <h2 className="font-bold text-slate-300 text-lg mb-4 flex items-center gap-2"><BookOpen className="h-5 w-5 text-emerald-400" /> Klasat që Mësoj</h2>

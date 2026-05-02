@@ -2,12 +2,12 @@ import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { BookOpen, Calendar, GraduationCap, LayoutDashboard, LogOut, Users, FileText } from 'lucide-react';
+import { BookOpen, Calendar, GraduationCap, LayoutDashboard, LogOut, Users, FileText, Settings2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export function Layout() {
-  const { appUser, signOut } = useAuth();
+  const { appUser, activeRoles, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -17,14 +17,19 @@ export function Layout() {
   };
 
   const navItems = [
-    { name: 'Paneli i Përgjithshëm', href: '/', icon: LayoutDashboard, roles: ['student', 'teacher', 'admin', 'superadmin'] },
+    { name: 'Paneli i Përgjithshëm', href: '/dashboard', icon: LayoutDashboard, roles: ['student', 'teacher', 'admin', 'superadmin'] },
     { name: 'Klasat e Mia', href: '/classes/my', icon: BookOpen, roles: ['student'] },
     { name: 'Klasa të Disponueshme', href: '/classes/available', icon: Calendar, roles: ['student'] },
     { name: 'Mësimdhënia Ime', href: '/teacher/classes', icon: BookOpen, roles: ['teacher'] },
     { name: 'Menaxho Lëndët', href: '/admin/subjects', icon: BookOpen, roles: ['admin', 'superadmin'] },
     { name: 'Menaxho Klasat', href: '/admin/classes', icon: Calendar, roles: ['admin', 'superadmin'] },
     { name: 'Përdoruesit', href: '/admin/users', icon: Users, roles: ['admin', 'superadmin'] },
-  ].filter(item => appUser?.roles && appUser.roles.some(r => item.roles.includes(r)));
+  ].filter(item => {
+    // Superadmins can see everything by default in this implementation, 
+    // or we can strictly follow activeRoles. Let's strictly follow activeRoles but allow superadmin to bypass if needed.
+    if (appUser?.roles.includes('superadmin')) return true;
+    return activeRoles.some(r => item.roles.includes(r));
+  });
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
@@ -68,11 +73,22 @@ export function Layout() {
                 </div>
                 <div className="min-w-0 hidden md:block text-left">
                   <div className="text-xs font-bold text-white truncate">{appUser?.fullName}</div>
-                  <div className="text-[10px] text-emerald-400 capitalize truncate">{appUser?.roles?.join(', ')} • {appUser?.uid.substring(0,6)}</div>
+                  <div className="text-[10px] text-emerald-400 capitalize truncate">
+                    {activeRoles.length > 0 ? activeRoles.join(', ') : 'Student'} • {appUser?.uid.substring(0,6)}
+                  </div>
                 </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 mt-2">
               <DropdownMenuLabel>Llogaria Ime</DropdownMenuLabel>
+              {appUser && appUser.roles.length > 1 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer" onClick={() => navigate('/role-selection')}>
+                    <Settings2 className="mr-2 h-4 w-4" />
+                    <span>Ndrysho Rolin</span>
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50" onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
@@ -98,6 +114,15 @@ export function Layout() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 mt-2">
               <DropdownMenuLabel>{appUser?.fullName}</DropdownMenuLabel>
+              {appUser && appUser.roles.length > 1 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer font-medium" onClick={() => navigate('/role-selection')}>
+                    <Settings2 className="mr-2 h-4 w-4" />
+                    <span>Ndrysho Rolin</span>
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50" onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
