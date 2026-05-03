@@ -1,14 +1,24 @@
 import React, { useState } from 'react';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { auth, db } from '@/lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Loader2, BookOpen, Apple } from 'lucide-react';
+import { Loader2, BookOpen, Apple, Mail } from 'lucide-react';
 
 export default function Login() {
   const { user, signIn, signInWithApple, loading } = useAuth();
   const navigate = useNavigate();
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
   
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
@@ -46,18 +56,70 @@ export default function Login() {
     }
   };
 
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isRegistering) {
+      if (!firstName || !lastName || !phone || !password) {
+        setErrorMsg('Të lutem plotëso të paktën Emrin, Mbiemrin, Numrin e Telefonit dhe Fjalëkalimin.');
+        return;
+      }
+    } else {
+      if (!email || !password) {
+        setErrorMsg('Të lutem plotëso Email-in dhe Fjalëkalimin.');
+        return;
+      }
+    }
+    
+    setIsSigningIn(true);
+    setErrorMsg('');
+    try {
+      if (isRegistering) {
+        const authEmail = email.trim() ? email.trim() : `${phone.replace(/\D/g, '')}@instituti.local`;
+        const userCred = await createUserWithEmailAndPassword(auth, authEmail, password);
+        const fullName = `${firstName.trim()} ${lastName.trim()}`;
+        
+        await updateProfile(userCred.user, { displayName: fullName });
+        await setDoc(doc(db, 'users', userCred.user.uid), {
+          email: authEmail,
+          fullName: fullName,
+          phone: phone,
+          role: 'student',
+          roles: ['student'],
+          createdAt: Date.now()
+        }, { merge: true });
+        
+      } else {
+        const loginEmail = email.includes('@') ? email.trim() : `${email.replace(/\D/g, '')}@instituti.local`;
+        await signInWithEmailAndPassword(auth, loginEmail, password);
+      }
+      navigate('/');
+    } catch (error: any) {
+      console.error(error);
+      setIsSigningIn(false);
+      if (error.code === 'auth/email-already-in-use') {
+        setErrorMsg('Kjo llogari ekziston tashmë.');
+      } else if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+        setErrorMsg('Të dhëna të gabuara.');
+      } else if (error.code === 'auth/weak-password') {
+         setErrorMsg('Fjalëkalimi duhet të ketë të paktën 6 karaktere.');
+      } else {
+        setErrorMsg(error?.message || 'Ndodhi një gabim gjatë autentifikimit.');
+      }
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-[#fcf9f8] p-4 font-sans relative overflow-hidden">
       {/* Decorative blobs */}
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-emerald-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
-      <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-teal-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-[#b0f0d6] rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
+      <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-[#ffe088] rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
       
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100 z-10">
-        <div className="bg-emerald-800 p-8 text-center text-white relative">
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-[0_8px_30px_rgba(115,92,0,0.08)] overflow-hidden border border-[#003527]/10 z-10 my-8">
+        <div className="bg-[#003527] p-8 text-center text-white relative">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/arabesque.png')] opacity-10"></div>
-          <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-90 relative z-10" />
-          <h1 className="text-3xl font-serif italic tracking-tight mb-2 relative z-10">Instituti i Kur'anit</h1>
-          <p className="text-emerald-100/90 text-sm relative z-10">Portali Online i Studimeve Islame</p>
+          <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-90 relative z-10 text-white" />
+          <h1 className="text-3xl font-serif tracking-tight mb-2 relative z-10 text-white font-bold">Instituti i Kur'anit</h1>
+          <p className="text-[#95d3ba] text-sm relative z-10">Portali Online i Studimeve Islame</p>
         </div>
         <div className="p-8">
           
@@ -68,10 +130,97 @@ export default function Login() {
           )}
 
           <div className="space-y-4">
-            <p className="text-sm text-slate-500 text-center mb-6">Zgjidhni një mënyrë për t'u kyçur në llogarinë tuaj.</p>
             
+            <form onSubmit={handleEmailAuth} className="space-y-4">
+              {isRegistering && (
+                <>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Emri *</label>
+                      <input 
+                        type="text" 
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                        placeholder="Emri"
+                        disabled={isSigningIn}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Mbiemri *</label>
+                      <input 
+                        type="text" 
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                        placeholder="Mbiemri"
+                        disabled={isSigningIn}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Numri i Telefonit *</label>
+                    <input 
+                      type="tel" 
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                      placeholder="+355 6x xxx xxxx"
+                      disabled={isSigningIn}
+                    />
+                  </div>
+                </>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  {isRegistering ? 'Email (Opsionale)' : 'Email / Numër Telefoni'}
+                </label>
+                <input 
+                  type={isRegistering ? "email" : "text"} 
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                  placeholder={isRegistering ? "name@example.com" : "name@example.com / numri"}
+                  disabled={isSigningIn}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Fjalëkalimi *</label>
+                <input 
+                  type="password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none transition-all"
+                  placeholder="••••••••"
+                  disabled={isSigningIn}
+                />
+              </div>
+              
+              <Button
+                type="submit"
+                className="w-full py-6 text-base rounded-2xl bg-[#003527] hover:bg-[#064e3b] text-white shadow-md transition-all flex items-center justify-center mt-2"
+                disabled={isSigningIn}
+              >
+                {isSigningIn ? (
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                ) : (
+                  <Mail className="w-5 h-5 mr-3" />
+                )}
+                {isRegistering ? 'Regjistrohu' : 'Kyçu'}
+              </Button>
+            </form>
+
+            <div className="relative pt-4 pb-2">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white text-slate-500">ose vazhdo me</span>
+              </div>
+            </div>
+
             <Button
-              className="w-full py-7 text-base rounded-2xl bg-white border-2 border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all flex items-center justify-center"
+              className="w-full py-6 text-base rounded-2xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 shadow-sm transition-all flex items-center justify-center"
               onClick={handleGoogleSignIn}
               disabled={isSigningIn}
             >
@@ -97,11 +246,11 @@ export default function Login() {
                   />
                 </svg>
               )}
-              {isSigningIn ? 'Po kyçesh...' : 'Vazhdo me Google'}
+              Google
             </Button>
 
             <Button
-              className={`w-full py-7 text-base rounded-2xl bg-black hover:bg-zinc-900 text-white shadow-md transition-all flex items-center justify-center ${isIOS ? 'border-2 border-emerald-400' : ''}`}
+              className={`w-full py-6 text-base rounded-2xl bg-black hover:bg-zinc-900 text-white shadow-md transition-all flex items-center justify-center ${isIOS ? 'border border-emerald-400' : ''}`}
               onClick={handleAppleSignIn}
               disabled={isSigningIn}
             >
@@ -110,13 +259,22 @@ export default function Login() {
               ) : (
                 <Apple className="w-5 h-5 mr-3" />
               )}
-              {isSigningIn ? 'Po kyçesh...' : 'Vazhdo me Apple'}
+              Apple
             </Button>
+            
+            <div className="mt-6 text-center text-sm text-[#404944]">
+              {isRegistering ? (
+                <p>Keni tashmë një llogari? <button onClick={() => setIsRegistering(false)} className="text-[#003527] font-bold hover:underline">Kyçu këtu</button></p>
+              ) : (
+                <p>Nuk keni llogari? <button onClick={() => setIsRegistering(true)} className="text-[#003527] font-bold hover:underline">Regjistrohu tani</button></p>
+              )}
+            </div>
+            
           </div>
           
           <div className="mt-8 text-center pt-6 border-t border-slate-100">
             <p className="text-xs text-slate-400 font-medium">
-              Instituti i Kur'anit © 2024
+              Instituti i Kur'anit © 2026
             </p>
           </div>
         </div>

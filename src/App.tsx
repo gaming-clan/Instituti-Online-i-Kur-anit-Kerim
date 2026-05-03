@@ -8,6 +8,8 @@ import { Loader2 } from 'lucide-react';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
 import PublicHome from '@/pages/PublicHome';
+import PublicTeachers from '@/pages/PublicTeachers';
+import PublicSubjects from '@/pages/PublicSubjects';
 import RoleSelection from '@/pages/RoleSelection';
 import SubjectsAdmin from '@/pages/admin/Subjects';
 import ClassesAdmin from '@/pages/admin/Classes';
@@ -51,6 +53,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<PublicHome />} />
+          <Route path="/mesuesit" element={<PublicTeachers />} />
+          <Route path="/lendet" element={<PublicSubjects />} />
           <Route path="/login" element={<Login />} />
           <Route path="/role-selection" element={<AuthGuard><RoleSelection /></AuthGuard>} />
           
